@@ -1,22 +1,16 @@
-from ultralytics import YOLO  # Import the YOLO class from the ultralytics package
+from ultralytics import YOLO
 import cv2
 import supervision as sv
 
-# Load a pre-trained YOLO model
-model = YOLO('yolov8n')  # This loads the YOLOv8n model, adjust the model name based on your needs
+model = YOLO('yolov8n')
 # model.train(data='coco128.yaml', epochs=3)
 
-# Function to process and display video
 def process_video(video_path):
-    # Capture video
+
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         print("Error opening video file.")
         return
-
-    # Define the codec and create VideoWriter object to save the output
-    # fourcc = cv2.VideoWriter_fourcc(*'MP4V')
-    # out = cv2.VideoWriter('output.mp4', fourcc, 20.0, (int(cap.get(3)), int(cap.get(4))))
 
     fps = cap.get(cv2.CAP_PROP_FPS)
     wait_ms = int(1000/fps)
@@ -54,10 +48,7 @@ def process_video(video_path):
             break
 
 
-    # Release everything
     cap.release()
-    # out.release()
     cv2.destroyAllWindows()
 
-# Process your video
 process_video('sample_study_video.mov')
