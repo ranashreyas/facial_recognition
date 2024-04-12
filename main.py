@@ -2,6 +2,12 @@ from ultralytics import YOLO
 import cv2
 import numpy as np
 
+def draw_threshold_line(image, start_point, end_point, color, thickness):
+    start_point = (int(start_point[0]), int(start_point[1]))
+    end_point = (int(end_point[0]), int(end_point[1]))
+    cv2.line(image, start_point, end_point, color, thickness)
+
+
 def process_video(video_path, horizontal_threshold = 3, vertical_threshold = 3):
     cap = cv2.VideoCapture(video_path)
 
@@ -19,8 +25,8 @@ def process_video(video_path, horizontal_threshold = 3, vertical_threshold = 3):
         face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
         eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye_tree_eyeglasses.xml')
 
-        faces = face_cascade.detectMultiScale(gray, 1.3, 5)
-
+        faces = face_cascade.detectMultiScale(gray, 1.1, 5)
+        
         for (x, y, w, h) in faces:
             roi_gray = gray[y:y+h, x:x+w]
             roi_color = frame[y:y+h, x:x+w]
@@ -43,33 +49,53 @@ def process_video(video_path, horizontal_threshold = 3, vertical_threshold = 3):
                     # cv2.circle(eye_roi_color, center, radius, (0, 0, 255), 2)
                     cv2.circle(eye_roi_color, center, 3, (0, 0, 255), 2)
 
-                    eye_center = (ex, ey)
-                    dx = (center[0] - eye_center[0]) + ex
-                    dy = (center[1] - eye_center[1]) + ey
+                    eye_center = (ex + ew // 2, ey + eh // 2)  # The center of the eye bounding box
 
+                    dx = center[0] - eye_center[0]  # Difference in x from the eye center
+                    dy = center[1] - eye_center[1]  # Difference in y from the eye center
+
+                    # Use a portion of the eye width and height as thresholds for determining direction
+                    horizontal_threshold_px = ew / horizontal_threshold  # This will be a float
+                    vertical_threshold_px = eh / vertical_threshold  # This will be a float
+
+                    # Draw horizontal threshold lines
+                    draw_threshold_line(roi_color, 
+                                        (ex + int(horizontal_threshold_px), ey), 
+                                        (ex + int(horizontal_threshold_px), ey + eh), 
+                                        (0, 255, 255), 1)
+                    draw_threshold_line(roi_color, 
+                                        (ex + ew - int(horizontal_threshold_px), ey), 
+                                        (ex + ew - int(horizontal_threshold_px), ey + eh), 
+                                        (0, 255, 255), 1)
+
+                    # Draw vertical threshold lines
+                    draw_threshold_line(roi_color, 
+                                        (ex, ey + int(vertical_threshold_px)), 
+                                        (ex + ew, ey + int(vertical_threshold_px)), 
+                                        (0, 255, 255), 1)
+                    draw_threshold_line(roi_color, 
+                                        (ex, ey + eh - int(vertical_threshold_px)), 
+                                        (ex + ew, ey + eh - int(vertical_threshold_px)), 
+                                        (0, 255, 255), 1)
+
+                    # Adjust the direction check accordingly
                     direction = ""
-                    if abs(dx) > ew // horizontal_threshold:
+                    if abs(dx) > horizontal_threshold_px:
                         if dx < 0:
                             direction += "Left"
                         else:
                             direction += "Right"
-                    if abs(dy) > eh // vertical_threshold:
+                    if abs(dy) > vertical_threshold_px:
                         if dy < 0:
-                            direction += " Up" 
+                            direction += "Up" 
                         else:
-                            direction += " Down"
+                            direction += "Down"
 
-                    print(direction)
+                    # If no direction is determined, it's center
+                    if direction == "":
+                        direction = "Center"
 
-                    cv2.line(roi_color, (ex + ew // horizontal_threshold, ey), (ex + ew // horizontal_threshold, ey + eh), (0, 255, 255), 1)  # Left threshold
-                    cv2.line(roi_color, (ex + (horizontal_threshold - 1) * ew // horizontal_threshold, ey), (ex + (horizontal_threshold - 1) * ew // horizontal_threshold, ey + eh), (0, 255, 255), 1)  # Right threshold
-                    cv2.line(roi_color, (ex, ey + eh // vertical_threshold), (ex + ew, ey + eh // vertical_threshold), (0, 255, 255), 1)  # Top threshold
-                    cv2.line(roi_color, (ex, ey + (vertical_threshold - 1) * eh // vertical_threshold), (ex + ew, ey + (vertical_threshold - 1) * eh // vertical_threshold), (0, 255, 255), 1)  # Bottom threshold
-
-                    if direction:
-                        cv2.putText(roi_color, direction, (ex, ey - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-                    else:
-                        cv2.putText(roi_color, "Center", (ex, ey - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+                    cv2.putText(roi_color, direction, (ex, ey - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
                 cv2.rectangle(roi_color, (ex, ey), (ex+ew, ey+eh), (0, 255, 255), 2)
 
@@ -81,7 +107,7 @@ def process_video(video_path, horizontal_threshold = 3, vertical_threshold = 3):
     cv2.destroyAllWindows()
 
 # If you're testing with a webcam, you can call it with 0
-process_video(0, horizontal_threshold=2, vertical_threshold=2)
+process_video(0, horizontal_threshold=2.5, vertical_threshold=2.5)
 
 # For a video file, replace 0 with the path to your video file
 # process_video('path_to_video_file')
